@@ -114,7 +114,7 @@ body.playing .bar button{min-height:42px}
 </head>
 <body>
 <div class="app">
-<div class="top"><h1>Grid Conquest <span class="muted">prototype · rules v0.3 · build 11-16e</span></h1>
+<div class="top"><h1>Grid Conquest <span class="muted">prototype · rules v0.3 · build 11-17a</span></h1>
 <button id="logBtn" class="logbtn" hidden>Log</button>
 <button id="menuBtn" class="menu" hidden>☰ Menu</button></div>
 <div id="logPanel" class="logpanel sheet" hidden><ol id="log"></ol></div>
@@ -810,6 +810,12 @@ const NET = {
     this.conns.forEach(c => c.open && c.send({type: "lobby", seats: this.seats, joined})); },
   broadcastState() { const s = ser(S); this.conns.forEach(c => c.open && c.send({type: "state", s})); },
 };
+// Connection helpers: STUN servers help two browsers find a direct route.
+// No relay (TURN) yet: networks that block direct links can't connect.
+const PEER_OPTS = {config: {iceServers: [
+  {urls: "stun:stun.l.google.com:19302"},
+  {urls: "stun:global.stun.twilio.com:3478"},
+]}};
 const peerId = code => "gridconquest-" + code;
 const sameAction = (x, y) => x.t === y.t && x.k === y.k && x.cell === y.cell && x.j === y.j &&
   String((x.cells || []).slice().sort((a, b) => a - b)) === String((y.cells || []).slice().sort((a, b) => a - b));
@@ -819,7 +825,10 @@ function hostOpen() {
   NET.code = Math.random().toString(36).slice(2, 8).toUpperCase();
   NET.seats = [{race: "Humans", ctl: "you"}];
   drawLobby("Opening a room…");
-  NET.peer = new Peer(peerId(NET.code));
+  NET.peer = new Peer(peerId(NET.code), PEER_OPTS);
+  // A host tab that sleeps (phone app switch) drops off the server; rejoin it.
+  NET.peer.on("disconnected", () => setTimeout(() => { if (!NET.peer.destroyed) NET.peer.reconnect(); }, 1000));
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && NET.peer.disconnected && !NET.peer.destroyed) NET.peer.reconnect(); });
   NET.peer.on("open", () => drawLobby());
   // Heartbeat: in the lobby, a player silent for 8 s has left (closed the tab).
   setInterval(() => {
@@ -916,13 +925,22 @@ function joinGame(code) {
   NET.role = "guest";
   const wait = t => { document.body.classList.remove("playing"); $("game").hidden = true; $("bar").hidden = true; $("setup").hidden = false; $("setup").innerHTML = `<b style="font-family:var(--display)">Joining campaign ${code}</b><p>${t}</p>`; };
   wait("Connecting…");
-  NET.peer = new Peer();
+  NET.peer = new Peer(PEER_OPTS);
+  setTimeout(() => { if (!NET.peer.open && !NET.conn) wait("Can't reach the connection server. Check this device's internet, then reload."); }, 15000);
   NET.peer.on("error", e => wait(e.type === "peer-unavailable" ? "No game found at this link. Ask the host for a new one." : "Connection problem: " + e.type));
   NET.peer.on("open", () => {
+    let tries = 0;
+    const attempt = () => {
     const conn = NET.peer.connect(peerId(code), {reliable: true});
     NET.conn = conn;
+    setTimeout(() => {
+      if (conn.open || NET.conn !== conn) return;
+      NET.conn = null; conn.close();
+      if (++tries < 3) { wait(`Still connecting… (try ${tries + 1} of 3). The host's game tab must stay open and on screen.`); attempt(); }
+      else { wait("Couldn't reach the host. Ask them to keep the game tab open and on screen, then tap Retry."); $("setup").insertAdjacentHTML("beforeend", '<button id="retry" class="primary" style="width:100%">Retry</button>'); $("retry").onclick = () => location.reload(); }
+    }, 12000);
     conn.on("open", () => wait("Connected. Waiting for the host…"));
-    conn.on("close", () => { if (S) { S.flash = "Lost the host. Reload this page to rejoin."; S.waiting = true; render(); } else wait("Lost the host. Reload this page to rejoin."); });
+    conn.on("close", () => { if (NET.conn !== conn) return; if (S) { S.flash = "Lost the host. Reload this page to rejoin."; S.waiting = true; render(); } else wait("Lost the host. Reload this page to rejoin."); });
     window.addEventListener("pagehide", () => { try { conn.send({type: "bye"}); } catch (e) {} });
     conn.on("data", d => {
       if (d.type === "ping") return conn.send({type: "pong"});
@@ -938,6 +956,8 @@ function joinGame(code) {
         render();
       }
     });
+    };
+    attempt();
   });
 }
 
