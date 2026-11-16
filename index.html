@@ -806,6 +806,8 @@ const deser = s => JSON.parse(s, (k, v) => v && v.__set ? new Set(v.__set) : v);
 const NET = {
   role: null, seat: null, peer: null, conns: [], code: null, conn: null, seats: [],
   send(msg) { if (this.conn && this.conn.open) this.conn.send(msg); },
+  broadcastLobby() { const joined = this.conns.filter(c => c.open && c.seat !== undefined).map(c => c.seat);
+    this.conns.forEach(c => c.open && c.send({type: "lobby", seats: this.seats, joined})); },
   broadcastState() { const s = ser(S); this.conns.forEach(c => c.open && c.send({type: "state", s})); },
 };
 const peerId = code => "gridconquest-" + code;
@@ -846,6 +848,11 @@ function assignSeats() {
   if (inGame) NET.broadcastState(); else drawLobby();
 }
 function onHostData(conn, d) {
+  if (d.type === "race") {
+    const seat = NET.seats[conn.seat];
+    if ($("game").hidden && seat && seat.ctl === "online" && RACES[d.race]) { seat.race = d.race; drawLobby(); }
+    return;
+  }
   if (d.type !== "action" || !S || S.over || S.cur !== conn.seat) return NET.broadcastState();
   if (legalActions().some(x => sameAction(x, d.a))) applyAction(d.a);
   else { conn.send({type: "flash", text: "That move is not legal."}); NET.broadcastState(); }
@@ -861,17 +868,18 @@ function drawLobby(note) {
   $("setup").innerHTML = `<b style="font-family:var(--display)">Host a campaign</b>
     <p class="muted">${note || "Share this link. Friends open it in any browser to join."}</p>
     <div class="row"><input id="lnk" readonly value="${link}" style="flex:1;min-width:0;min-height:44px;font:14px var(--body);padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--parch);color:var(--ink)"><button id="share">Share</button></div>
-    ${NET.seats.map((s, i) => `<div class="row"><label style="color:var(--p${i})">P${i+1}</label><select data-r="${i}">${raceOpts}</select>
+    ${NET.seats.map((s, i) => `<div class="row"><label style="color:var(--p${i})">P${i+1}</label>${s.ctl === "online" ? `<span style="flex:1">${s.race} <span class="muted">(their pick)</span></span>` : `<select data-r="${i}">${raceOpts}</select>`}
       ${s.ctl === "you" ? `<span style="flex:1">You (this phone)</span>` : `<select data-c="${i}">${ctlOpts.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select>`}
       ${s.ctl === "online" ? `<span class="muted" style="flex:0 0 auto">${connected.has(i) ? "✔ joined" : "waiting"}</span>` : ""}</div>`).join("")}
     <div class="row"><button id="addp"${NET.seats.length >= 4 ? " disabled" : ""}>Add player</button><button id="remp"${NET.seats.length <= 2 ? " disabled" : ""}>Remove player</button></div>
     <button id="start" class="primary" style="width:100%"${ready ? "" : " disabled"}>Begin the campaign</button>
-    <p class="muted">Keep this tab open with the screen on while you play.</p>`;
+    <p class="muted">Online friends pick their own faction. Keep this tab open with the screen on while you play.</p>`;
+  NET.broadcastLobby();
   NET.seats.forEach((s, i) => {
-    $("setup").querySelector(`[data-r="${i}"]`).value = s.race;
+    const r = $("setup").querySelector(`[data-r="${i}"]`); if (r) r.value = s.race;
     const c = $("setup").querySelector(`[data-c="${i}"]`); if (c) c.value = s.ctl;
   });
-  $("setup").querySelectorAll("[data-r]").forEach(el => el.onchange = () => { NET.seats[+el.dataset.r].race = el.value; });
+  $("setup").querySelectorAll("[data-r]").forEach(el => el.onchange = () => { NET.seats[+el.dataset.r].race = el.value; NET.broadcastLobby(); });
   $("setup").querySelectorAll("[data-c]").forEach(el => el.onchange = () => { NET.seats[+el.dataset.c].ctl = el.value; assignSeats(); });
   $("addp").onclick = () => { NET.seats.push({race: Object.keys(RACES)[NET.seats.length % 3], ctl: "online"}); assignSeats(); };
   $("remp").onclick = () => { NET.seats.pop(); assignSeats(); };
@@ -899,6 +907,7 @@ function joinGame(code) {
     conn.on("close", () => { if (S) { S.flash = "Lost the host. Reload this page to rejoin."; S.waiting = true; render(); } else wait("Lost the host. Reload this page to rejoin."); });
     conn.on("data", d => {
       if (d.type === "welcome") { NET.seat = d.seat; if (!S) wait(`You are P${d.seat + 1}. Waiting for the host to begin…`); }
+      else if (d.type === "lobby") guestLobby(code, d.seats, d.joined);
       else if (d.type === "full") wait("This game is full.");
       else if (d.type === "flash") { if (S) { S.flash = d.text; S.waiting = false; render(); } }
       else if (d.type === "state") {
@@ -910,6 +919,20 @@ function joinGame(code) {
       }
     });
   });
+}
+
+// Guest lobby: everyone's seat, with a faction picker on your own.
+function guestLobby(code, seats, joined) {
+  S = null; document.body.classList.remove("playing"); $("game").hidden = true; $("bar").hidden = true; $("setup").hidden = false;
+  const label = s => s.ctl === "you" ? "Host" : s.ctl === "online" ? "Online friend" : s.ctl === "local" ? "Host's phone" : s.ctl === "basic" ? "Basic bot" : "Advanced bot";
+  $("setup").innerHTML = `<b style="font-family:var(--display)">Campaign ${code}</b>
+    <p class="muted">${NET.seat === null ? "Waiting for a seat…" : `You are P${NET.seat + 1}. Pick your faction, then wait for the host to begin.`}</p>
+    ${seats.map((s, i) => `<div class="row"><label style="color:var(--p${i})">P${i+1}</label>
+      ${i === NET.seat ? `<select id="myRace" style="flex:1">${Object.keys(RACES).map(r => `<option${r === s.race ? " selected" : ""}>${r}</option>`).join("")}</select>`
+        : `<span style="flex:1">${s.race}</span>`}
+      <span class="muted" style="flex:0 0 auto">${i === NET.seat ? "You" : label(s) + (s.ctl === "online" ? (joined.includes(i) ? " ✔" : " (waiting)") : "")}</span></div>`).join("")}
+    <p class="muted">Tap a faction name in the game to read its abilities.</p>`;
+  const sel = $("myRace"); if (sel) sel.onchange = () => NET.send({type: "race", race: sel.value});
 }
 
 function showSetup() {
