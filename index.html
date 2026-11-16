@@ -114,7 +114,7 @@ body.playing .bar button{min-height:42px}
 </head>
 <body>
 <div class="app">
-<div class="top"><h1>Grid Conquest <span class="muted">prototype · rules v0.3 · build 11-17a</span></h1>
+<div class="top"><h1>Grid Conquest <span class="muted">prototype · rules v0.3 · build 11-17b</span></h1>
 <button id="logBtn" class="logbtn" hidden>Log</button>
 <button id="menuBtn" class="menu" hidden>☰ Menu</button></div>
 <div id="logPanel" class="logpanel sheet" hidden><ol id="log"></ol></div>
@@ -810,11 +810,14 @@ const NET = {
     this.conns.forEach(c => c.open && c.send({type: "lobby", seats: this.seats, joined})); },
   broadcastState() { const s = ser(S); this.conns.forEach(c => c.open && c.send({type: "state", s})); },
 };
-// Connection helpers: STUN servers help two browsers find a direct route.
-// No relay (TURN) yet: networks that block direct links can't connect.
+// Connection helpers: STUN finds a direct route between browsers; the TURN
+// relay carries the game when a network blocks direct links.
 const PEER_OPTS = {config: {iceServers: [
   {urls: "stun:stun.l.google.com:19302"},
   {urls: "stun:global.stun.twilio.com:3478"},
+  // Metered relay (app "gridconquest", free plan). Used only when a direct link is blocked.
+  {urls: ["turn:global.relay.metered.ca:80", "turn:global.relay.metered.ca:80?transport=tcp", "turn:global.relay.metered.ca:443", "turns:global.relay.metered.ca:443?transport=tcp"],
+   username: "2b452655a582b1357c59bd74", credential: "2M+M/yJ96qDowt3x"},
 ]}};
 const peerId = code => "gridconquest-" + code;
 const sameAction = (x, y) => x.t === y.t && x.k === y.k && x.cell === y.cell && x.j === y.j &&
