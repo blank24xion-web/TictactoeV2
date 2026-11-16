@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grid Conquest</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{--table:#5a3f28;--table2:#3e2a19;--parch:#ecdcb5;--parch2:#dcc392;--ink:#3a2a18;--muted:#6e5838;--line:#9c7f52;--cell:rgba(255,248,225,.35);
+--ok:#2f6b2a;--bad:#9e1f1f;--sel:#c8901c;--lock:rgba(158,31,31,.18);
+--p0:#27467f;--p1:#8e2323;--p2:#2f5f2c;--p3:#5b2d77;--display:"Cinzel",Georgia,serif;--body:"IM Fell English",Georgia,serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--table:#24180e;--table2:#140d07;--parch:#d6c395;--parch2:#bea472;--cell:rgba(255,248,225,.22)}}
+:root[data-theme="dark"]{--table:#24180e;--table2:#140d07;--parch:#d6c395;--parch2:#bea472;--cell:rgba(255,248,225,.22)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{background:radial-gradient(ellipse at 50% 0%,var(--table),var(--table2));background-attachment:fixed;color:var(--ink);font:16px/1.35 var(--body);padding:12px 16px calc(96px + env(safe-area-inset-bottom));min-height:100vh}
+.app{max-width:480px;margin:0 auto;position:relative}
+.menu{position:absolute;top:0;right:0;min-height:36px;padding:4px 10px;font-size:12px}
+h1{font:800 18px var(--display);letter-spacing:.06em;color:var(--parch);margin:4px 0 12px;text-align:center;text-shadow:0 1px 2px #000}
+h1 .muted{color:var(--parch2);font:italic 13px var(--body);letter-spacing:0;display:block}
+.sheet{background:radial-gradient(ellipse at 30% 20%,rgba(255,255,255,.35),transparent 60%),radial-gradient(ellipse at 80% 90%,rgba(120,80,30,.25),transparent 55%),var(--parch);border:1px solid var(--line);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.45),inset 0 0 30px rgba(120,80,30,.35)}
+button{font:600 15px var(--display);letter-spacing:.03em;min-height:44px;padding:8px 12px;border:1px solid var(--line);background:var(--parch);color:var(--ink);border-radius:6px;cursor:pointer;touch-action:manipulation;box-shadow:inset 0 0 10px rgba(120,80,30,.3)}
+button:disabled{opacity:.4;cursor:default}
+button.on{border-color:var(--sel);box-shadow:0 0 0 2px var(--sel),inset 0 0 10px rgba(120,80,30,.3)}
+button.primary{background:var(--p1);color:var(--parch);border-color:#5a1414}
+select{font:16px var(--body);min-height:44px;padding:6px 8px;background:var(--parch);color:var(--ink);border:1px solid var(--line);border-radius:6px}
+.card{padding:14px;margin-bottom:12px}
+.chips{display:flex;gap:6px;margin-bottom:10px}
+.chip{flex:1;min-width:0;padding:6px 8px;font:600 13px var(--display);display:flex;justify-content:space-between;align-items:center;gap:4px;white-space:nowrap;overflow:hidden;border-left:6px solid var(--c)}
+.chip.cur{box-shadow:0 0 0 2px var(--sel),0 4px 14px rgba(0,0,0,.45)}
+.chip span{font-weight:800;font-size:15px}
+.objs{display:flex;gap:6px;margin-bottom:10px;align-items:stretch}
+.obj{flex:1;padding:6px 4px;text-align:center;font:600 11px var(--display);cursor:pointer}
+.obj.on{box-shadow:0 0 0 2px var(--sel),0 4px 14px rgba(0,0,0,.45)}
+.deck{flex:0 0 54px;display:flex;flex-direction:column;justify-content:center;align-items:center;font:11px var(--display);color:var(--parch2);border:1px dashed var(--parch2);border-radius:6px}
+.deck b{font-size:17px;color:var(--parch)}
+.mini{display:grid;grid-template-columns:repeat(3,12px);gap:2px;justify-content:center;margin-bottom:3px}
+.mini i{width:12px;height:12px;border:1px solid rgba(58,42,24,.35);border-radius:2px}
+.mini i.x{background:var(--ink);border-radius:50%}
+.msg{font:italic 17px var(--body);color:var(--parch);min-height:44px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;text-align:center;text-shadow:0 1px 2px #000}
+.mapwrap{padding:10px;position:relative}
+.mapwrap::after{content:"N";position:absolute;top:-2px;right:6px;font:800 12px var(--display);color:var(--muted)}
+#board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:repeat(5,minmax(0,1fr));gap:0;width:100%;aspect-ratio:1;border:2px solid var(--ink);outline:1px solid var(--ink);outline-offset:3px}
+.cell{aspect-ratio:1;min-width:0;min-height:0;overflow:hidden;border:1px dashed rgba(58,42,24,.45);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;user-select:none;touch-action:manipulation}
+.cell.lock{background:repeating-linear-gradient(45deg,var(--lock) 0 6px,transparent 6px 12px)}
+.cell.hint::before{content:"";position:absolute;inset:18%;border:2px dashed var(--ok);border-radius:50%}
+.cell.sel .tok{box-shadow:0 0 0 4px var(--sel),0 2px 4px rgba(0,0,0,.5)}
+.cell.last .tok{outline:2px dotted var(--ink);outline-offset:3px}
+.tok{width:76%;height:auto;aspect-ratio:1;flex:0 0 auto;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.35),transparent 50%),var(--c);display:flex;align-items:center;justify-content:center;color:var(--parch);font:800 clamp(12px,3.8vw,17px) var(--display);box-shadow:inset 0 -3px 0 rgba(0,0,0,.3),0 2px 4px rgba(0,0,0,.5);position:relative;z-index:1}
+.tok.basic::after{content:"";width:22%;height:22%;border-radius:50%;background:var(--parch);opacity:.8}
+.tok.special{border:2px solid var(--parch2);outline:2px solid var(--c)}
+.cell.hint .tok{box-shadow:0 0 0 3px var(--ok),0 2px 4px rgba(0,0,0,.5)}
+.cell .prot{position:absolute;top:1px;right:3px;font-size:12px;z-index:2}
+.info{min-height:44px;font-size:14px;color:var(--parch2);margin:10px 0}
+.info b{color:var(--parch);font-family:var(--display)}
+.tray{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tile{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 2px;min-height:60px;line-height:1.1}
+.tile .ab{font-weight:800;font-size:16px}
+.tile .nm{font:11px var(--body);color:var(--muted)}
+.tile .ct{font-size:12px}
+.bar{position:fixed;z-index:10;left:0;right:0;bottom:0;background:linear-gradient(var(--table),var(--table2));border-top:2px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.bar .in{max-width:480px;margin:0 auto;display:flex;gap:8px}
+.bar button{flex:1}
+details{font-size:14px;color:var(--parch2)}
+details summary{font-family:var(--display);cursor:pointer}
+#log{padding-left:18px;margin:6px 0 0;max-height:200px;overflow:auto}
+.muted{color:var(--muted);font-size:14px}
+.row{display:flex;gap:8px;align-items:center;margin:8px 0}
+.row label{flex:0 0 32px;font:800 15px var(--display)}
+.row select{flex:1}
+.over{border:2px solid var(--sel)}
+@media (min-width:900px){body{padding-bottom:16px}.bar{position:static;background:none;border:0;padding:0;margin-top:10px}}
+</style>
+</head>
+<body>
+<div class="app">
+<h1>Grid Conquest <span class="muted">prototype · rules v0.3</span></h1>
+<button id="menuBtn" class="menu" hidden>☰ Menu</button>
+<div id="setup" class="card sheet"></div>
+<div id="game" hidden>
+  <div class="chips" id="chips"></div>
+  <div class="objs" id="objs"></div>
+  <div class="msg" id="msg"></div>
+  <div class="sheet mapwrap"><div id="board"></div></div>
+  <div class="info" id="info"></div>
+  <div class="tray" id="tray"></div>
+  <details style="margin-top:12px"><summary>Game log</summary><ol id="log"></ol></details>
+</div>
+</div>
+<div class="bar" id="bar" hidden><div class="in" id="actions"></div></div>
+
+<script>
+"use strict";
+// ---- Tunables (rules v0.3) ----
+const CONFIG = {
+  size: 5,
+  basics: 8,
+  specialCopies: 2,
+  winTarget: {2: 5, 3: 4, 4: 3},
+  displaySize: 3,
+  shapeCopies: 3,
+  hiddenCards: 5,
+  // Test switches for simulations only; the real rules have both on.
+  rules: {castleLock: true, knightProtect: true},
+};
+const SHAPES = [
+  {name: "Line",      cells: [[0,0],[0,1],[0,2]]},
+  {name: "Corner",    cells: [[0,0],[0,1],[1,0]]},
+  {name: "Step",      cells: [[0,0],[0,1],[1,2]]},
+  {name: "Reach",     cells: [[0,0],[0,1],[2,0]]},
+  {name: "Far reach", cells: [[0,0],[0,1],[2,2]]},
+  {name: "Vee",       cells: [[0,0],[0,2],[1,1]]},
+  {name: "Diagonal",  cells: [[0,0],[1,1],[2,2]]},
+  {name: "Corners",   cells: [[0,0],[0,2],[2,0]]},
+  {name: "Crown",     cells: [[0,0],[0,2],[2,1]]},
+  {name: "Scatter",   cells: [[0,0],[1,2],[2,1]]},
+];
+const RACES = {
+  Humans: {Castle: {abbr: "Ca", text: "Cannot be moved or Destroyed by enemy effects. When played, until your next turn enemies cannot put tiles adjacent to it, and tiles in those spaces cannot be used in enemy scoring."},
+           Knight: {abbr: "Kn", text: "When placed, you may move an allied tile to a space adjacent to this tile. It may move onto an enemy basic tile, destroying it. The moved tile cannot be destroyed until your next turn."},
+           Quartermaster: {abbr: "QM", text: "When placed, place a basic tile adjacent to another allied basic tile. It may be placed onto an enemy basic tile, destroying it (not a protected tile)."}},
+  Elves:  {Ranger: {abbr: "Ra", text: "When placed, destroy an enemy tile."},
+           Scout:  {abbr: "Sc", text: "When placed, choose one: move up to two allied tiles to any empty spaces, or place a basic tile on an empty corner space."},
+           Elder:  {abbr: "El", text: "When placed, return an allied basic tile to your supply. If you do, take another turn (no Elder that turn)."}},
+  Undead: {Lich:   {abbr: "Li", text: "When scoring with this tile, you may use up to one enemy basic tile (it returns to its owner)."},
+           "Grave keeper": {abbr: "GK", text: "When placed, place a basic tile adjacent to this tile."},
+           Crypt:  {abbr: "Cr", text: "When returned to supply, place a basic tile in its previous space."}},
+};
+const ABBR = {}; const TEXT = {};
+for (const r in RACES) for (const k in RACES[r]) { ABBR[k] = RACES[r][k].abbr; TEXT[k] = RACES[r][k].text; }
+
+// ---- Shape matching ----
+const N = CONFIG.size;
+const rc = i => [Math.floor(i / N), i % N];
+const idx = (r, c) => r * N + c;
+function canon(coords) {
+  let best = null;
+  const tf = [([r,c])=>[r,c],([r,c])=>[c,-r],([r,c])=>[-r,-c],([r,c])=>[-c,r],([r,c])=>[r,-c],([r,c])=>[-c,-r],([r,c])=>[-r,c],([r,c])=>[c,r]];
+  for (const f of tf) {
+    const p = coords.map(f);
+    const mr = Math.min(...p.map(x=>x[0])), mc = Math.min(...p.map(x=>x[1]));
+    const s = p.map(([r,c])=>[r-mr,c-mc]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]).join(";");
+    if (best === null || s < best) best = s;
+  }
+  return best;
+}
+const SHAPE_CANON = SHAPES.map(s => canon(s.cells));
+function fits3x3(coords) {
+  const rs = coords.map(x=>x[0]), cs = coords.map(x=>x[1]);
+  return Math.max(...rs)-Math.min(...rs) <= 2 && Math.max(...cs)-Math.min(...cs) <= 2;
+}
+// Lookup table: every 3-cell set on the board -> shape id (or -1). Built once.
+const triKey = (a, b, c) => { if (a > b) [a, b] = [b, a]; if (b > c) [b, c] = [c, b]; if (a > b) [a, b] = [b, a]; return (a * N * N + b) * N * N + c; };
+const TRI = new Int8Array(N ** 6).fill(-1);
+for (let a = 0; a < N*N; a++) for (let b = a+1; b < N*N; b++) for (let c = b+1; c < N*N; c++) {
+  const co = [a, b, c].map(rc);
+  if (fits3x3(co)) TRI[triKey(a, b, c)] = SHAPE_CANON.indexOf(canon(co));
+}
+const shapeOf = cells => TRI[triKey(cells[0], cells[1], cells[2])];
+function matches(cells, shapeId) { return shapeOf(cells) === shapeId; }
+(function selfTest() {
+  const seen = new Set();
+  const all = [...Array(9).keys()].map(i=>[Math.floor(i/3), i%3]);
+  for (let a=0;a<9;a++) for (let b=a+1;b<9;b++) for (let c=b+1;c<9;c++) seen.add(canon([all[a],all[b],all[c]]));
+  const ok = seen.size === 10 && SHAPE_CANON.every(s=>seen.has(s)) && new Set(SHAPE_CANON).size === 10;
+  console.log(ok ? "Shape self-test passed: 10 shapes cover all 3-in-3x3 arrangements" : "Shape self-test FAILED");
+})();
+
+// ---- Helpers ----
+const ADJ = [];
+function adj(i) { return ADJ[i]; }
+for (let i = 0; i < N*N; i++) ADJ[i] = adjCalc(i);
+function adjCalc(i) {
+  const [r,c] = rc(i), out = [];
+  for (let dr=-1; dr<=1; dr++) for (let dc=-1; dc<=1; dc++) {
+    if (!dr && !dc) continue;
+    const R=r+dr, C=c+dc;
+    if (R>=0 && R<N && C>=0 && C<N) out.push(idx(R,C));
+  }
+  return out;
+}
+const shuffle = a => { for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+const isBasic = k => k === "basic";
+
+// ---- State ----
+let S;
+function newGame(races, bots = [], sim = false) {
+  const deck = [];
+  SHAPES.forEach((_, id) => { for (let i=0;i<CONFIG.shapeCopies;i++) deck.push(id); });
+  shuffle(deck);
+  deck.splice(0, CONFIG.hiddenCards);
+  S = {
+    players: races.map((race, i) => {
+      const supply = {basic: CONFIG.basics};
+      for (const k in RACES[race]) supply[k] = CONFIG.specialCopies;
+      return {race, supply, score: 0, color: `var(--p${i})`, name: `P${i+1} ${race}${bots[i] ? ` (${bots[i]} bot)` : ""}`, bot: bots[i] || null,
+        w: (bots[i] === "planner" || bots[i] === "advanced") && TRAINED[race] ? TRAINED[race] : null};
+    }),
+    sim, turns: 0,
+    board: Array(N*N).fill(null),
+    deck, display: [],
+    cur: 0, turnNo: 0, extra: false, noElder: false,
+    locks: [], mode: "play", chosen: null, objSel: null, scoreSel: [],
+    pending: null, over: null, log: [],
+  };
+  while (S.display.length < CONFIG.displaySize && S.deck.length) S.display.push(S.deck.pop());
+  log(`Game start: ${S.players.map(p=>p.name).join(", ")}. Target ${target()}.`);
+  startTurn();
+}
+const P = () => S.players[S.cur];
+const target = () => CONFIG.winTarget[S.players.length];
+function log(t) { S.log.unshift(t); }
+function lockedFor(cell, p) {
+  return S.locks.some(l => l.owner !== p && adj(l.cell).includes(cell));
+}
+const canPut = (cell, p) => !S.board[cell] && !lockedFor(cell, p);
+const ownTiles = p => S.board.map((t,i)=>t&&t.owner===p?i:-1).filter(i=>i>=0);
+function specialAllowed(k) {
+  if (isBasic(k)) return true;
+  if (S.cur === 0 && S.turnNo === 0) return false;   // first player, first turn
+  if (k === "Elder" && S.noElder) return false;
+  if (P().lastSpecial) return false;   // no specials two turns in a row
+  return true;
+}
+function playSpots(p, k) {
+  const out = [];
+  for (let i=0;i<N*N;i++) {
+    if (canPut(i, p)) out.push(i);
+    else if (!isBasic(k) && S.board[i] && S.board[i].owner===p && isBasic(S.board[i].kind) && !lockedFor(i, p)) out.push(i);
+  }
+  return out;
+}
+function canPlay(p) {
+  const sup = S.players[p].supply;
+  return Object.keys(sup).some(k => sup[k] > 0 && specialAllowed(k) && playSpots(p, k).length);
+}
+function scoringTriples(p, shapeId) {
+  const own = ownTiles(p).filter(i => !lockedFor(i, p));
+  const res = [];
+  const tri = (arr, f) => { for (let a=0;a<arr.length;a++) for (let b=a+1;b<arr.length;b++) for (let c=b+1;c<arr.length;c++) if (f([arr[a],arr[b],arr[c]])) return true; return false; };
+  if (tri(own, t => matches(t, shapeId))) return true;
+  const liches = own.filter(i => S.board[i].kind === "Lich");
+  if (!liches.length) return false;
+  const enemyBasics = S.board.map((t,i)=>t&&t.owner!==p&&isBasic(t.kind)&&!lockedFor(i, p)?i:-1).filter(i=>i>=0);
+  for (const L of liches) for (const e of enemyBasics) for (const o of own) {
+    if (o === L) continue;
+    if (matches([L, e, o], shapeId)) return true;
+  }
+  return false;
+}
+const canScore = p => S.display.some(id => scoringTriples(p, id));
+function validClaim(p, cells, shapeId) {
+  if (cells.some(i => lockedFor(i, p))) return "A tile in a Castle-locked space cannot be scored.";
+  const enemy = cells.filter(i => S.board[i].owner !== p);
+  if (enemy.length > 1) return "Only one enemy tile allowed (with a Lich).";
+  if (enemy.length === 1) {
+    if (!isBasic(S.board[enemy[0]].kind)) return "Enemy tile must be a basic tile.";
+    if (!cells.some(i => S.board[i].owner === p && S.board[i].kind === "Lich")) return "Using an enemy tile needs your Lich in the pattern.";
+  }
+  return matches(cells, shapeId) ? null : `Those tiles do not form ${SHAPES[shapeId].name}.`;
+}
+
+// ---- Board changes ----
+function returnToSupply(cell) {
+  const t = S.board[cell];
+  S.board[cell] = null;
+  const pl = S.players[t.owner];
+  pl.supply[t.kind]++;
+  if (t.kind === "Crypt" && pl.supply.basic > 0 && !lockedFor(cell, t.owner)) {
+    pl.supply.basic--;
+    S.board[cell] = {owner: t.owner, kind: "basic"};
+    log(`${pl.name}: Crypt leaves a basic tile behind.`);
+  }
+}
+function placeBasic(p, cell) {
+  S.players[p].supply.basic--;
+  S.board[cell] = {owner: p, kind: "basic"};
+}
+
+// ---- Turn flow ----
+function startTurn() {
+  S.locks = S.locks.filter(l => l.owner !== S.cur);
+  S.board.forEach(t => { if (t && t.owner === S.cur) t.prot = false; });
+  S.mode = "play"; S.chosen = null; S.objSel = null; S.scoreSel = []; S.pending = null;
+  if (!canPlay(S.cur) && !canScore(S.cur)) return endGame(`${P().name} has no legal move (stalemate).`);
+  render();
+}
+function endTurn() {
+  S.pending = null;
+  if (S.over) return render();
+  if (!S.display.length && !S.deck.length) return endGame("All objectives claimed.");
+  S.turns++;
+  // Elder extra turn: specials allowed during it; the Elder still counts, so
+  // the turn after the extra turn cannot play a special.
+  if (S.extra) P().lastSpecial = false;
+  else { P().lastSpecial = !!S.playedSpecial; S.playedSpecial = false; }
+  if (S.extra) { S.extra = false; S.noElder = true; log(`${P().name} takes another turn.`); }
+  else { S.noElder = false; S.cur = (S.cur + 1) % S.players.length; if (S.cur === 0) S.turnNo++; }
+  startTurn();
+}
+function endGame(reason) {
+  const ranked = S.players.map((p, i) => ({i, score: p.score, spec: Object.keys(p.supply).filter(k=>!isBasic(k)).reduce((a,k)=>a+p.supply[k],0)}));
+  ranked.sort((a,b) => b.score-a.score || b.spec-a.spec);
+  const top = ranked.filter(r => r.score === ranked[0].score && r.spec === ranked[0].spec);
+  const result = top.length > 1 ? "Draw between " + top.map(r=>S.players[r.i].name).join(" and ") : `${S.players[top[0].i].name} wins`;
+  S.winner = top.length > 1 ? -1 : top[0].i;
+  S.endReason = reason;
+  S.over = `${reason} ${result}. ` + ranked.map(r=>`${S.players[r.i].name}: ${r.score} obj, ${r.spec} specials in supply`).join(" · ");
+  log("GAME OVER — " + S.over);
+  render();
+}
+
+function doPlay(cell) {
+  const p = S.cur, k = S.chosen, pl = P();
+  if (!playSpots(p, k).includes(cell)) return;
+  let note = "";
+  if (S.board[cell]) { pl.supply.basic++; note = " (replacing a basic)"; }
+  pl.supply[k]--;
+  if (!isBasic(k)) S.playedSpecial = true;
+  S.board[cell] = {owner: p, kind: k};
+  log(`${pl.name} plays ${isBasic(k) ? "a basic tile" : k}${note}.`);
+  S.chosen = null; S.last = cell; S.info = "";
+  onPlace(k, cell);
+}
+function onPlace(k, cell) {
+  const p = S.cur, pl = P();
+  const finish = () => endTurn();
+  switch (k) {
+    case "Castle":
+      if (CONFIG.rules.castleLock) S.locks.push({owner: p, cell});
+      return finish();
+    case "Knight": {
+      const dests = knightDests(cell, p);
+      const movers = ownTiles(p).filter(i => i !== cell);
+      if (!dests.length || !movers.length) return finish();
+      S.pending = {type: "knight", src: cell, from: null, skippable: true,
+        prompt: "Knight: pick an allied tile to move (or Skip)."}; return render();
+    }
+    case "Quartermaster": {
+      if (!pl.supply.basic) return finish();
+      const dests = qmSpots(p);
+      if (!dests.length) return finish();
+      S.pending = {type: "qm", prompt: "Quartermaster: pick a space next to one of your basic tiles (empty, or an enemy basic to destroy)."}; return render();
+    }
+    case "Ranger": {
+      if (!rangerTargets(p).length) return finish();
+      S.pending = {type: "ranger", prompt: "Ranger: pick an enemy tile to destroy."}; return render();
+    }
+    case "Scout":
+      S.pending = {type: "scout", left: 2, moved: new Set(), from: null, skippable: true,
+        prompt: "Scout: pick an allied tile to move (up to 2), or an empty corner space for a basic tile. Or Skip."};
+      if (!pendingTargets().length) { S.pending = null; return finish(); }
+      return render();
+    case "Elder": {
+      if (!elderTargets(p).length) return finish();
+      S.pending = {type: "elder", src: cell, prompt: "Elder: pick an allied basic tile to return to your supply."}; return render();
+    }
+    case "Grave keeper": {
+      if (!pl.supply.basic || !adj(cell).some(i => canPut(i, p))) return finish();
+      S.pending = {type: "gk", src: cell, prompt: "Grave keeper: pick an adjacent space for a basic tile."}; return render();
+    }
+    default: return finish();
+  }
+}
+function qmSpots(p) {
+  const out = new Set();
+  const enemyBasic = i => S.board[i] && S.board[i].owner !== p && isBasic(S.board[i].kind) && !S.board[i].prot && !lockedFor(i, p);
+  ownTiles(p).filter(i => isBasic(S.board[i].kind)).forEach(b => adj(b).forEach(i => { if (canPut(i, p) || enemyBasic(i)) out.add(i); }));
+  return [...out];
+}
+const knightDests = (src, p) => adj(src).filter(i => !S.board[i] || (S.board[i].owner !== p && isBasic(S.board[i].kind) && !S.board[i].prot));
+const elderTargets = p => ownTiles(p).filter(i => isBasic(S.board[i].kind));
+const rangerTargets = p => S.board.map((t,i)=>t&&t.owner!==p&&t.kind!=="Castle"&&!t.prot?i:-1).filter(i=>i>=0);
+const CORNERS = [0, N-1, N*(N-1), N*N-1];
+const scoutMovers = (p, moved) => S.board.some(t => !t) ? ownTiles(p).filter(i => !moved.has(i)) : [];
+const scoutEdges = p => S.players[p].supply.basic > 0 ? CORNERS.filter(i => canPut(i, p)) : [];
+function pendingTargets() {
+  const pd = S.pending, p = S.cur;
+  if (!pd) return [];
+  switch (pd.type) {
+    case "knight": return pd.from === null ? ownTiles(p).filter(i => i !== pd.src) : knightDests(pd.src, p);
+    case "qm": return qmSpots(p);
+    case "ranger": return rangerTargets(p);
+    case "scout": return pd.from !== null ? S.board.map((t, i) => t ? -1 : i).filter(i => i >= 0)
+      : scoutMovers(p, pd.moved).concat(pd.left === 2 ? scoutEdges(p) : []);
+    case "elder": return elderTargets(p);
+    case "gk": return adj(pd.src).filter(i => canPut(i, p));
+  }
+  return [];
+}
+function resolvePending(cell) {
+  const pd = S.pending, p = S.cur, pl = P();
+  if (!pendingTargets().includes(cell)) return;
+  switch (pd.type) {
+    case "knight":
+      if (pd.from === null) { pd.from = cell; pd.skippable = false; pd.prompt = "Knight: pick a space adjacent to the Knight (empty, or an enemy basic tile to destroy)."; return render(); }
+      if (S.board[cell]) { log(`${pl.name}: Knight destroys ${S.players[S.board[cell].owner].name}'s basic tile.`); returnToSupply(cell); }
+      S.board[cell] = S.board[pd.from]; S.board[pd.from] = null; S.board[cell].prot = CONFIG.rules.knightProtect;
+      log(`${pl.name}: Knight moves a tile; it is protected until their next turn.`); return endTurn();
+    case "qm": if (S.board[cell]) { log(`${pl.name}: Quartermaster destroys ${S.players[S.board[cell].owner].name}'s basic tile.`); returnToSupply(cell); }
+      placeBasic(p, cell); log(`${pl.name}: Quartermaster places a basic tile.`); return endTurn();
+    case "gk": placeBasic(p, cell); log(`${pl.name}: Grave keeper places a basic tile.`); return endTurn();
+    case "ranger": {
+      const t = S.board[cell];
+      log(`${pl.name}: Ranger destroys ${S.players[t.owner].name}'s ${isBasic(t.kind) ? "basic tile" : t.kind}.`);
+      returnToSupply(cell); return endTurn();
+    }
+    case "elder": {
+      const t = S.board[cell];
+      log(`${pl.name}: Elder returns their ${isBasic(t.kind) ? "basic tile" : t.kind} to supply.`);
+      returnToSupply(cell); S.extra = true; return endTurn();
+    }
+    case "scout":
+      if (pd.from === null && !S.board[cell]) { placeBasic(p, cell); log(`${pl.name}: Scout places a basic tile on a corner space.`); return endTurn(); }
+      if (pd.from === null) { pd.from = cell; pd.skippable = false; pd.prompt = "Scout: pick any empty space."; return render(); }
+      S.board[cell] = S.board[pd.from]; S.board[pd.from] = null;
+      pd.moved.add(cell); pd.from = null; pd.left--;
+      log(`${pl.name}: Scout moves a tile.`);
+      if (!pd.left || !scoutMovers(p, pd.moved).length) return endTurn();
+      pd.skippable = true; pd.prompt = "Scout: pick another allied tile to move, or Done."; return render();
+  }
+}
+function doScoreClick(cell) {
+  const t = S.board[cell];
+  if (S.objSel === null) return;
+  if (!t) return;
+  const i = S.scoreSel.indexOf(cell);
+  if (i >= 0) { S.scoreSel.splice(i, 1); return render(); }
+  S.scoreSel.push(cell);
+  if (S.scoreSel.length < 3) return render();
+  const shapeId = S.display[S.objSel];
+  const err = validClaim(S.cur, S.scoreSel, shapeId);
+  if (err) { S.scoreSel = []; S.flash = err; return render(); }
+  const pl = P();
+  pl.score++;
+  log(`${pl.name} scores ${SHAPES[shapeId].name} (${pl.score}/${target()}).`);
+  S.scoreSel.forEach(returnToSupply);
+  S.display.splice(S.objSel, 1);
+  if (S.deck.length) S.display.splice(S.objSel, 0, S.deck.pop());
+  S.objSel = null; S.scoreSel = [];
+  if (pl.score >= target()) return endGame(`${pl.name} reached ${target()} objectives.`);
+  endTurn();
+}
+
+// ---- Render (phone-first) ----
+const $ = id => document.getElementById(id);
+const kindName = k => isBasic(k) ? "Basic" : k;
+const kindAbbr = k => isBasic(k) ? "●" : ABBR[k];
+function tileInfo(k, owner) {
+  const who = owner === undefined ? "" : S.players[owner].name + " · ";
+  return isBasic(k) ? `<b>${who}Basic tile</b> — no ability.` : `<b>${who}${k}</b> — ${TEXT[k]}`;
+}
+// Whose input this screen accepts right now.
+function myTurn() {
+  if (!S || S.over) return false;
+  if (NET.role === "guest") return S.cur === NET.seat;
+  return !P().bot && !P().remote;
+}
+// Every move goes through here: run it locally, or send it to the host.
+function act(a) {
+  if (NET.role === "guest") { NET.send({type: "action", a}); S.waiting = true; render(); return; }
+  applyAction(a);
+}
+function render() {
+  if (S.sim) return;
+  if (NET.role !== "guest") scheduleBot();
+  $("setup").hidden = true; $("game").hidden = false; $("bar").hidden = false;
+  $("menuBtn").hidden = false;
+  $("menuBtn").onclick = () => {
+    if (!confirm(NET.role === "guest" ? "Leave this online game?" : "Leave this game and return to the menu?")) return;
+    clearTimeout(botTimer);
+    if (NET.role === "guest") { location.href = location.pathname; return; }
+    if (NET.role === "host") NET.conns.forEach(c => c.open && c.send({type: "flash", text: "The host returned to the menu."}));
+    S.over = S.over || "Abandoned.";
+    showSetup();
+  };
+  const p = S.cur, me = P(), mine = myTurn() && !S.waiting;
+  if (S.lastCur !== p) { S.lastCur = p; S.mode = "play"; S.chosen = null; S.objSel = null; S.scoreSel = []; }
+
+  $("chips").innerHTML = S.players.map((pl, i) =>
+    `<div class="chip sheet${i === p && !S.over ? " cur" : ""}" style="--c:${pl.color}"><span style="font-size:13px;font-weight:600">${pl.race}${pl.bot ? " ⚙" : ""}${NET.role === "guest" && i === NET.seat ? " (you)" : ""}</span><span>${pl.score}/${target()}</span></div>`).join("");
+
+  $("objs").innerHTML = "";
+  S.display.forEach((id, j) => {
+    const o = document.createElement("div");
+    o.className = "obj sheet" + (S.objSel === j ? " on" : "");
+    const cells = new Set(SHAPES[id].cells.map(([r, c]) => r * 3 + c));
+    o.innerHTML = `<div class="mini">${[...Array(9).keys()].map(k => `<i${cells.has(k) ? ' class="x"' : ""}></i>`).join("")}</div>${SHAPES[id].name}`;
+    o.onclick = () => { if (!mine || S.pending) return; S.mode = "score"; S.chosen = null; S.objSel = j; S.scoreSel = []; S.info = "Rotation and mirroring allowed. Tap 3 tiles that form this shape."; render(); };
+    $("objs").appendChild(o);
+  });
+  const dk = document.createElement("div"); dk.className = "deck"; dk.innerHTML = `<b>${S.deck.length}</b>deck`; $("objs").appendChild(dk);
+
+  let m;
+  if (S.over) m = S.over.split(". ")[0] + ". " + (S.winner === -1 ? "A draw." : S.players[S.winner].name + " wins!");
+  else if (S.flash) { m = S.flash; S.flash = null; }
+  else if (S.waiting) m = "Sending to host…";
+  else if (me.bot) m = `${me.name} is moving…`;
+  else if (!mine) m = `Waiting for ${me.name}…`;
+  else if (S.pending) m = S.pending.prompt;
+  else if (S.mode === "score") m = S.objSel === null ? "Tap an objective to claim." : `Tap 3 tiles forming ${SHAPES[S.display[S.objSel]].name} (${S.scoreSel.length}/3).`;
+  else m = S.chosen ? `Place ${kindName(S.chosen)} on a marked space.` : `${me.race}: choose a tile, or Score.` + (S.noElder ? " Extra turn." : "") + (me.lastSpecial ? " No specials this turn (played one last turn)." : "") + (S.cur === 0 && S.turnNo === 0 ? " First turn — no specials." : "");
+  $("msg").textContent = m;
+
+  const hints = new Set(!mine ? [] : S.pending ? pendingTargets() : (S.mode === "play" && S.chosen) ? playSpots(p, S.chosen) : []);
+  $("board").innerHTML = "";
+  S.board.forEach((t, i) => {
+    const c = document.createElement("div");
+    c.className = "cell";
+    if (!S.over && S.locks.some(l => adj(l.cell).includes(i))) c.classList.add("lock");
+    if (hints.has(i)) c.classList.add("hint");
+    if (S.scoreSel.includes(i)) c.classList.add("sel");
+    if (S.last === i) c.classList.add("last");
+    if (t) {
+      const tok = document.createElement("div");
+      tok.className = "tok " + (isBasic(t.kind) ? "basic" : "special");
+      tok.style.setProperty("--c", S.players[t.owner].color);
+      tok.textContent = isBasic(t.kind) ? "" : ABBR[t.kind];
+      c.appendChild(tok);
+      if (t.prot) { const s = document.createElement("span"); s.className = "prot"; s.textContent = "🛡"; c.appendChild(s); }
+    }
+    c.onclick = () => {
+      if (mine && S.pending && hints.has(i)) return act({t: "pick", cell: i});
+      if (mine && S.mode === "score" && S.objSel !== null && t) {
+        const k = S.scoreSel.indexOf(i);
+        if (k >= 0) S.scoreSel.splice(k, 1); else S.scoreSel.push(i);
+        if (S.scoreSel.length < 3) return render();
+        const cells = S.scoreSel, j = S.objSel, err = validClaim(p, cells, S.display[j]);
+        S.scoreSel = [];
+        if (err) { S.flash = err; return render(); }
+        S.objSel = null;
+        return act({t: "score", j, cells});
+      }
+      if (mine && !S.pending && S.mode === "play" && S.chosen && hints.has(i)) { const k = S.chosen; S.chosen = null; return act({t: "play", k, cell: i}); }
+      if (t) { S.info = tileInfo(t.kind, t.owner); render(); }
+    };
+    $("board").appendChild(c);
+  });
+
+  $("info").innerHTML = S.info || "Tap any tile on the map to read it.";
+
+  $("tray").innerHTML = "";
+  if (mine && !S.pending && S.mode === "play") {
+    for (const k in me.supply) {
+      const b = document.createElement("button");
+      b.className = "tile" + (S.chosen === k ? " on" : "");
+      b.innerHTML = `<span class="ab" style="color:${me.color}">${kindAbbr(k)}</span><span class="nm">${kindName(k)}</span><span class="ct">×${me.supply[k]}</span>`;
+      b.disabled = !(me.supply[k] > 0 && specialAllowed(k) && playSpots(p, k).length);
+      b.onclick = () => { S.chosen = S.chosen === k ? null : k; S.info = S.chosen ? tileInfo(k) + (isBasic(k) ? "" : " Can also replace one of your basic tiles.") : ""; render(); };
+      $("tray").appendChild(b);
+    }
+  }
+
+  const a = $("actions"); a.innerHTML = "";
+  const btn = (label, fn, cls) => { const b = document.createElement("button"); b.textContent = label; b.onclick = fn; if (cls) b.className = cls; a.appendChild(b); return b; };
+  if (S.over) { if (NET.role !== "guest") btn("New game", showSetup, "primary"); else btn("Waiting for host", () => {}).disabled = true; }
+  else if (!mine) btn(me.bot ? "Bot is moving…" : "Waiting…", () => {}).disabled = true;
+  else if (S.pending) { if (S.pending.skippable) btn(S.pending.type === "scout" ? "Done" : "Skip", () => act({t: "skip"}), "primary"); else btn("Choose a marked space", () => {}).disabled = true; }
+  else {
+    btn("Play", () => { S.mode = "play"; S.objSel = null; S.scoreSel = []; S.info = ""; render(); }, S.mode === "play" ? "on" : "");
+    btn("Score", () => { S.mode = "score"; S.chosen = null; S.info = "Tap an objective above, then 3 of your tiles."; render(); }, S.mode === "score" ? "on" : "");
+    if (S.mode === "score" && S.scoreSel.length) btn("Clear", () => { S.scoreSel = []; render(); });
+  }
+
+  $("log").innerHTML = S.log.map(t => `<li>${t}</li>`).join("");
+  if (NET.role === "host") NET.broadcastState();
+}
+
+// ---- Bot (greedy, one step of lookahead into its own effect choices) ----
+const BOT = {score: 1000, myScorable: 120, oppScorable: 180, tile: 3, pair: 1, special: 2, extraTurn: 150, lookahead: 1};
+function claims(p) {
+  const cand = S.board.map((t,i) => t && (t.owner === p || isBasic(t.kind)) ? i : -1).filter(i => i >= 0);
+  const out = [];
+  for (let a=0;a<cand.length;a++) for (let b=a+1;b<cand.length;b++) for (let c=b+1;c<cand.length;c++) {
+    const t = [cand[a],cand[b],cand[c]], sh = shapeOf(t);
+    if (sh < 0) continue;
+    const j = S.display.indexOf(sh);
+    if (j < 0 || !t.some(i => S.board[i].owner === p) || validClaim(p, t, sh)) continue;
+    out.push({t: "score", j, cells: t});
+  }
+  return out;
+}
+function legalActions() {
+  const p = S.cur;
+  if (S.pending) {
+    const acts = pendingTargets().map(cell => ({t: "pick", cell}));
+    if (S.pending.skippable || !acts.length) acts.push({t: "skip"});
+    return acts;
+  }
+  const acts = claims(p);
+  for (const k in P().supply) {
+    if (P().supply[k] > 0 && specialAllowed(k)) playSpots(p, k).forEach(cell => acts.push({t: "play", k, cell}));
+  }
+  return acts;
+}
+function applyAction(a) {
+  if (a.t === "play") { S.mode = "play"; S.chosen = a.k; doPlay(a.cell); }
+  else if (a.t === "score") { S.mode = "score"; S.objSel = a.j; S.scoreSel = []; a.cells.forEach(doScoreClick); }
+  else if (a.t === "pick") resolvePending(a.cell);
+  else endTurn();
+}
+// Advanced extra: threat cells = open spaces where one more tile from that
+// player would complete a displayed objective. Blocking (Castle locks, taking
+// tiles with Knight or Ranger, occupying the space) shows up as fewer enemy
+// threat cells, which the basic evaluation could not see.
+const SMART = {myThreat: 20, oppThreat: 35};
+function threatCells(q) {
+  const want = new Set(S.display);
+  const own = ownTiles(q), out = new Set();
+  const near = (x, y) => { const [r1,c1] = rc(x), [r2,c2] = rc(y); return Math.max(Math.abs(r1-r2), Math.abs(c1-c2)) <= 2; };
+  for (let c = 0; c < N*N; c++) {
+    if (!canPut(c, q)) continue;
+    const close = own.filter(o => near(o, c));
+    search: for (let i = 0; i < close.length; i++) for (let j = i+1; j < close.length; j++) {
+      const sh = shapeOf([close[i], close[j], c]);
+      if (sh >= 0 && want.has(sh)) { out.add(c); break search; }
+    }
+  }
+  return out.size;
+}
+function evaluate(p, smart) {
+  if (S.over) return S.winner === p ? 1e6 : S.winner === -1 ? 0 : -1e6;
+  const opps = S.players.map((_, i) => i).filter(i => i !== p);
+  const scorable = q => S.display.filter(id => scoringTriples(q, id)).length;
+  const own = ownTiles(p);
+  let pairs = 0;
+  for (let a=0;a<own.length;a++) for (let b=a+1;b<own.length;b++) {
+    const [r1,c1] = rc(own[a]), [r2,c2] = rc(own[b]);
+    if (Math.max(Math.abs(r1-r2), Math.abs(c1-c2)) <= 2) pairs++;
+  }
+  const spec = Object.keys(P_of(p).supply).filter(k => !isBasic(k)).reduce((s,k) => s + P_of(p).supply[k], 0);
+  const W = Object.assign({}, BOT, smart ? SMART : {myThreat: 0, oppThreat: 0}, P_of(p).w || {});
+  let v = W.score * (P_of(p).score - Math.max(...opps.map(o => S.players[o].score)))
+    + W.myScorable * scorable(p) - W.oppScorable * Math.max(...opps.map(scorable))
+    + W.tile * own.length + W.pair * pairs + W.special * spec
+    + (S.cur === p && !S.pending ? W.extraTurn : 0) + Math.random() * 0.5;
+  if (W.myThreat || W.oppThreat) v += W.myThreat * threatCells(p) - W.oppThreat * Math.max(...opps.map(threatCells));
+  return v;
+}
+const P_of = i => S.players[i];
+// Lightweight copy for search: game fields only, no log or UI state.
+function cloneState(s) {
+  const pd = s.pending;
+  return {players: s.players.map(p => ({race: p.race, supply: {...p.supply}, score: p.score, lastSpecial: p.lastSpecial, name: p.name, bot: p.bot, w: p.w, color: p.color})),
+    sim: true, turns: s.turns, board: s.board.map(t => t && {...t}), deck: s.deck.slice(), display: s.display.slice(),
+    cur: s.cur, turnNo: s.turnNo, playedSpecial: s.playedSpecial, extra: s.extra, noElder: s.noElder, locks: s.locks.map(l => ({...l})),
+    mode: "play", chosen: null, objSel: null, scoreSel: [],
+    pending: pd && {...pd, moved: pd.moved ? new Set(pd.moved) : undefined}, over: s.over, winner: s.winner, log: []};
+}
+function bestAction(depth, smart = false) {
+  const p = S.cur, acts = legalActions();
+  let best = null, bestV = -Infinity;
+  const snap = S;
+  for (const a of acts) {
+    S = cloneState(snap);
+    applyAction(a);
+    if (depth > 0 && S.pending && S.cur === p && !S.over) { const b = bestAction(depth - 1, smart); if (b) applyAction(b); }
+    const v = evaluate(p, smart);
+    S = snap;
+    if (v > bestV) { bestV = v; best = a; }
+  }
+  return best;
+}
+// Advanced AI (all races): Information-Set Monte Carlo search, the method card
+// and board game bots use when part of the game is hidden. For each promising
+// move it samples futures: the unseen deck is reshuffled every time (no
+// peeking), both sides play on with the quick greedy policy for a few turns,
+// then the position is scored. A UCB bandit spends more samples on moves that
+// look best. It stops at a sample budget, or at a time limit in the live game.
+const PLAN = {shortlist: 8, samples: 48, turnsAhead: 4, explore: 0.6, timeMs: 1500};
+// Per-race evaluation weights from training (train.js). Races without an entry
+// use BOT + SMART defaults.
+const TRAINED = {
+  Humans: {myScorable: 120, oppScorable: 99, tile: 5, pair: 1, special: 3, extraTurn: 468, myThreat: 23, oppThreat: 42},
+  Elves: {myScorable: 103, oppScorable: 158, tile: 2, pair: 1, special: 0, extraTurn: 137, myThreat: 10, oppThreat: 34},
+  Undead: {myScorable: 145, oppScorable: 201, tile: 3, pair: 1, special: 4, extraTurn: 61, myThreat: 14, oppThreat: 39},
+};
+function finishOwnChoices(p) {
+  let g = 0;
+  while (!S.over && S.pending && S.cur === p && g++ < 6) { const b = bestAction(0); if (!b) break; applyAction(b); }
+}
+function bestActionPlanner(budget = PLAN) {
+  const p = S.cur, snap = S, smart = !TRAINED[P().race];
+  const cand = legalActions().map(a => {
+    S = cloneState(snap); applyAction(a); finishOwnChoices(p);
+    const v = evaluate(p, smart); S = snap;
+    return {a, v, n: 0, sum: 0};
+  }).sort((x, y) => y.v - x.v);
+  if (!cand.length) return null;
+  if (cand[0].v >= 1e6 || cand.length === 1) return cand[0].a;
+  const arms = cand.slice(0, budget.shortlist);
+  const t0 = Date.now(), live = !snap.sim;
+  for (let it = 0; it < budget.samples * arms.length; it++) {
+    if (live && Date.now() - t0 > budget.timeMs) break;
+    const total = arms.reduce((t, x) => t + x.n, 0) + 1;
+    const arm = arms.find(x => !x.n) || arms.reduce((m, x) => {
+      const u = x.sum / x.n + budget.explore * Math.sqrt(Math.log(total) / x.n);
+      return u > m.u ? {x, u} : m;
+    }, {u: -Infinity}).x;
+    S = cloneState(snap); shuffle(S.deck);
+    applyAction(arm.a); finishOwnChoices(p);
+    const stop = S.turns + budget.turnsAhead;
+    while (!S.over && S.turns < stop) { const b = bestAction(BOT.lookahead); if (!b) break; applyAction(b); }
+    const v = evaluate(p, smart);
+    arm.sum += Math.max(-3, Math.min(3, v / BOT.score)); arm.n++;
+    S = snap;
+  }
+  return arms.reduce((m, x) => x.n && x.sum / x.n > m.v ? {a: x.a, v: x.sum / x.n} : m, {a: arms[0].a, v: -Infinity}).a;
+}
+const chooseAction = () => P().bot === "advanced" || P().bot === "planner" ? bestActionPlanner() : bestAction(BOT.lookahead);
+function botStep() {
+  if (S.over || !P().bot) return;
+  const a = chooseAction();
+  if (a) applyAction(a);
+}
+let botTimer = null;
+function scheduleBot() {
+  clearTimeout(botTimer);
+  if (!S.over && P().bot) botTimer = setTimeout(botStep, 500);
+}
+function simulate(raceA, raceB, games, turnCap = 400, aiA = "basic", aiB = "basic", wA = null) {
+  const r = {games, winsA: 0, winsB: 0, draws: 0, firstWins: 0, turns: 0, reasons: {}};
+  for (let g = 0; g < games; g++) {
+    const aFirst = g % 2 === 0;
+    newGame(aFirst ? [raceA, raceB] : [raceB, raceA], aFirst ? [aiA, aiB] : [aiB, aiA], true);
+    if (wA) S.players[aFirst ? 0 : 1].w = wA;
+    while (!S.over && S.turns < turnCap) { const a = chooseAction(); if (!a) break; applyAction(a); }
+    if (!S.over) { S.winner = -1; S.endReason = "turn cap"; }
+    const reason = S.endReason.replace(/^P\d \S+ (\(\w+ bot\) )?/, "");
+    r.reasons[reason] = (r.reasons[reason] || 0) + 1;
+    r.turns += S.turns;
+    if (S.winner === -1) r.draws++;
+    else {
+      if (S.winner === 0) r.firstWins++;
+      const aWon = (S.winner === 0) === aFirst;
+      aWon ? r.winsA++ : r.winsB++;
+    }
+  }
+  r.avgTurns = +(r.turns / games).toFixed(1);
+  return r;
+}
+
+// ---- Online play: the host's browser runs the game; guests send moves ----
+const UI_KEYS = ["mode", "chosen", "objSel", "scoreSel", "info", "flash", "lastCur"];
+const ser = o => JSON.stringify(o, (k, v) => v instanceof Set ? {__set: [...v]} : v);
+const deser = s => JSON.parse(s, (k, v) => v && v.__set ? new Set(v.__set) : v);
+const NET = {
+  role: null, seat: null, peer: null, conns: [], code: null, conn: null, seats: [],
+  send(msg) { if (this.conn && this.conn.open) this.conn.send(msg); },
+  broadcastState() { const s = ser(S); this.conns.forEach(c => c.open && c.send({type: "state", s})); },
+};
+const peerId = code => "gridconquest-" + code;
+const sameAction = (x, y) => x.t === y.t && x.k === y.k && x.cell === y.cell && x.j === y.j &&
+  String((x.cells || []).slice().sort((a, b) => a - b)) === String((y.cells || []).slice().sort((a, b) => a - b));
+
+function hostOpen() {
+  NET.role = "host";
+  NET.code = Math.random().toString(36).slice(2, 8).toUpperCase();
+  NET.seats = [{race: "Humans", ctl: "you"}, {race: "Elves", ctl: "online"}];
+  drawLobby("Opening a room…");
+  NET.peer = new Peer(peerId(NET.code));
+  NET.peer.on("open", () => drawLobby());
+  NET.peer.on("error", e => drawLobby("Connection problem: " + e.type));
+  NET.peer.on("connection", conn => {
+    conn.on("open", () => { NET.conns.push(conn); assignSeats(); });
+    conn.on("data", d => onHostData(conn, d));
+    conn.on("close", () => {
+      NET.conns = NET.conns.filter(c => c !== conn);
+      if (S && !S.over && $("game") && !$("game").hidden) { S.flash = `P${conn.seat + 1} disconnected. They can rejoin with the same link.`; render(); }
+      else drawLobby();
+    });
+  });
+}
+function assignSeats() {
+  const online = NET.seats.map((s, i) => s.ctl === "online" ? i : -1).filter(i => i >= 0);
+  const inGame = S && !S.over && !$("game").hidden;
+  const taken = new Set();
+  NET.conns.forEach(c => {
+    if (c.seat !== undefined && online.includes(c.seat) && !taken.has(c.seat)) taken.add(c.seat);
+    else c.seat = undefined;
+  });
+  NET.conns.forEach(c => {
+    if (c.seat === undefined) { const free = online.find(i => !taken.has(i)); if (free !== undefined) { c.seat = free; taken.add(free); } }
+    if (c.seat === undefined) { c.send({type: "full"}); setTimeout(() => c.close(), 500); }
+    else c.send({type: "welcome", seat: c.seat});
+  });
+  if (inGame) NET.broadcastState(); else drawLobby();
+}
+function onHostData(conn, d) {
+  if (d.type !== "action" || !S || S.over || S.cur !== conn.seat) return NET.broadcastState();
+  if (legalActions().some(x => sameAction(x, d.a))) applyAction(d.a);
+  else { conn.send({type: "flash", text: "That move is not legal."}); NET.broadcastState(); }
+}
+function drawLobby(note) {
+  clearTimeout(botTimer); $("menuBtn").hidden = true;
+  $("game").hidden = true; $("bar").hidden = true; $("setup").hidden = false;
+  const link = location.origin + location.pathname + "?join=" + NET.code;
+  const raceOpts = Object.keys(RACES).map(r => `<option>${r}</option>`).join("");
+  const ctlOpts = [["online", "Online friend"], ["basic", "Basic bot"], ["advanced", "Advanced bot"], ["local", "Pass this phone"]];
+  const connected = new Set(NET.conns.filter(c => c.open).map(c => c.seat));
+  const ready = NET.peer && NET.peer.open && NET.seats.every((s, i) => s.ctl !== "online" || connected.has(i));
+  $("setup").innerHTML = `<b style="font-family:var(--display)">Host a campaign</b>
+    <p class="muted">${note || "Share this link. Friends open it in any browser to join."}</p>
+    <div class="row"><input id="lnk" readonly value="${link}" style="flex:1;min-width:0;min-height:44px;font:14px var(--body);padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--parch);color:var(--ink)"><button id="share">Share</button></div>
+    ${NET.seats.map((s, i) => `<div class="row"><label style="color:var(--p${i})">P${i+1}</label><select data-r="${i}">${raceOpts}</select>
+      ${s.ctl === "you" ? `<span style="flex:1">You (this phone)</span>` : `<select data-c="${i}">${ctlOpts.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select>`}
+      ${s.ctl === "online" ? `<span class="muted" style="flex:0 0 auto">${connected.has(i) ? "✔ joined" : "waiting"}</span>` : ""}</div>`).join("")}
+    <div class="row"><button id="addp"${NET.seats.length >= 4 ? " disabled" : ""}>Add player</button><button id="remp"${NET.seats.length <= 2 ? " disabled" : ""}>Remove player</button></div>
+    <button id="start" class="primary" style="width:100%"${ready ? "" : " disabled"}>Begin the campaign</button>
+    <p class="muted">Keep this tab open with the screen on while you play.</p>`;
+  NET.seats.forEach((s, i) => {
+    $("setup").querySelector(`[data-r="${i}"]`).value = s.race;
+    const c = $("setup").querySelector(`[data-c="${i}"]`); if (c) c.value = s.ctl;
+  });
+  $("setup").querySelectorAll("[data-r]").forEach(el => el.onchange = () => { NET.seats[+el.dataset.r].race = el.value; });
+  $("setup").querySelectorAll("[data-c]").forEach(el => el.onchange = () => { NET.seats[+el.dataset.c].ctl = el.value; assignSeats(); });
+  $("addp").onclick = () => { NET.seats.push({race: Object.keys(RACES)[NET.seats.length % 3], ctl: "online"}); assignSeats(); };
+  $("remp").onclick = () => { NET.seats.pop(); assignSeats(); };
+  $("share").onclick = async () => {
+    try { if (navigator.share) await navigator.share({title: "Grid Conquest", url: link}); else { await navigator.clipboard.writeText(link); $("share").textContent = "Copied"; } }
+    catch (e) { $("lnk").select(); }
+  };
+  $("start").onclick = () => {
+    newGame(NET.seats.map(s => s.race), NET.seats.map(s => s.ctl === "basic" || s.ctl === "advanced" ? s.ctl : null));
+    NET.seats.forEach((s, i) => { if (s.ctl === "online") { S.players[i].remote = true; S.players[i].name += " (online)"; } });
+    render();
+  };
+}
+
+function joinGame(code) {
+  NET.role = "guest";
+  const wait = t => { $("game").hidden = true; $("bar").hidden = true; $("setup").hidden = false; $("setup").innerHTML = `<b style="font-family:var(--display)">Joining campaign ${code}</b><p>${t}</p>`; };
+  wait("Connecting…");
+  NET.peer = new Peer();
+  NET.peer.on("error", e => wait(e.type === "peer-unavailable" ? "No game found at this link. Ask the host for a new one." : "Connection problem: " + e.type));
+  NET.peer.on("open", () => {
+    const conn = NET.peer.connect(peerId(code), {reliable: true});
+    NET.conn = conn;
+    conn.on("open", () => wait("Connected. Waiting for the host…"));
+    conn.on("close", () => { if (S) { S.flash = "Lost the host. Reload this page to rejoin."; S.waiting = true; render(); } else wait("Lost the host. Reload this page to rejoin."); });
+    conn.on("data", d => {
+      if (d.type === "welcome") { NET.seat = d.seat; if (!S) wait(`You are P${d.seat + 1}. Waiting for the host to begin…`); }
+      else if (d.type === "full") wait("This game is full.");
+      else if (d.type === "flash") { if (S) { S.flash = d.text; S.waiting = false; render(); } }
+      else if (d.type === "state") {
+        const ui = {}; if (S) UI_KEYS.forEach(k => ui[k] = S[k]);
+        S = deser(d.s); S.sim = false; S.waiting = false;
+        UI_KEYS.forEach(k => { if (ui[k] !== undefined) S[k] = ui[k]; });
+        if (!Array.isArray(S.scoreSel)) S.scoreSel = [];
+        render();
+      }
+    });
+  });
+}
+
+function showSetup() {
+  clearTimeout(botTimer); $("menuBtn").hidden = true;
+  if (NET.role === "host") return drawLobby();
+  $("game").hidden = true; $("bar").hidden = true; $("setup").hidden = false;
+  const raceOpts = Object.keys(RACES).map(r => `<option>${r}</option>`).join("");
+  $("setup").innerHTML = `<button id="host" class="primary" style="width:100%">Host an online game</button>
+    <p class="muted" style="text-align:center">or play on this device</p>
+    <div class="row"><label style="flex:1">Players</label><select id="np"><option>2</option><option>3</option><option>4</option></select></div>
+    <div id="raceSel"></div>
+    <button id="go" style="width:100%;margin-top:8px">Begin the campaign</button>
+    <p class="muted">Pass the phone between human players. Tap any tile to read its ability.</p>`;
+  const drawRaces = () => {
+    const n = +$("np").value, names = Object.keys(RACES);
+    $("raceSel").innerHTML = [...Array(n).keys()].map(i => `<div class="row"><label style="color:var(--p${i})">P${i+1}</label><select id="r${i}">${raceOpts}</select><select id="b${i}"><option value="">Human</option><option value="basic"${i ? " selected" : ""}>Basic bot</option><option value="advanced">Advanced bot</option></select></div>`).join("");
+    for (let i = 0; i < n; i++) $("r" + i).value = names[i % names.length];
+  };
+  $("np").onchange = drawRaces; drawRaces();
+  $("go").onclick = () => { const ids = [...Array(+$("np").value).keys()]; newGame(ids.map(i => $("r" + i).value), ids.map(i => $("b" + i).value || null)); };
+  $("host").onclick = () => { if (typeof Peer === "undefined") { alert("Online play needs an internet connection."); return; } hostOpen(); };
+}
+const joinCode = new URLSearchParams(location.search).get("join");
+if (joinCode && typeof Peer !== "undefined") joinGame(joinCode.toUpperCase()); else showSetup();
+</script>
+</body>
+</html>
