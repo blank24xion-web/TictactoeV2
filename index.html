@@ -157,15 +157,15 @@ const SHAPES = [
   {name: "Scatter",   cells: [[0,0],[1,2],[2,1]]},
 ];
 const RACES = {
-  Humans: {Castle: {abbr: "Ca", text: "Cannot be moved or Destroyed by enemy effects. When played, until your next turn enemies cannot put tiles adjacent to it, and tiles in those spaces cannot be used in enemy scoring."},
-           Knight: {abbr: "Kn", text: "When placed, you may move an allied tile to a space adjacent to this tile. It may move onto an enemy basic tile, destroying it. The moved tile cannot be destroyed until your next turn."},
-           Quartermaster: {abbr: "QM", text: "When placed, place a basic tile adjacent to another allied basic tile. It may be placed onto an enemy basic tile, destroying it (not a protected tile)."}},
-  Elves:  {Ranger: {abbr: "Ra", text: "When placed, destroy an enemy tile."},
-           Scout:  {abbr: "Sc", text: "When placed, choose one: move up to two allied tiles to any empty spaces, or place a basic tile on an empty corner space."},
-           Elder:  {abbr: "El", text: "When placed, return an allied basic tile to your supply. If you do, take another turn (no Elder that turn)."}},
-  Undead: {Lich:   {abbr: "Li", text: "When scoring with this tile, you may use up to one enemy basic tile (it returns to its owner)."},
-           "Grave keeper": {abbr: "GK", text: "When placed, place a basic tile adjacent to this tile."},
-           Crypt:  {abbr: "Cr", text: "When returned to supply, place a basic tile in its previous space."}},
+  Humans: {Castle: {abbr: "Ca", text: "Can't be moved or destroyed by enemies. Until your next turn, enemies can't place tiles next to it, and tiles next to it can't be used in enemy scores."},
+           Knight: {abbr: "Kn", text: "You may move one of your tiles next to the Knight. It can land on an enemy basic to destroy it (not a protected one). The moved tile is protected until your next turn."},
+           Quartermaster: {abbr: "QM", text: "Place a basic next to one of your other basics. It can land on an enemy basic to destroy it (not a protected one)."}},
+  Elves:  {Ranger: {abbr: "Ra", text: "Destroy an enemy tile (not a Castle or a protected tile)."},
+           Scout:  {abbr: "Sc", text: "Choose one: move up to two of your tiles to any empty spaces, or place a basic on an empty corner."},
+           Elder:  {abbr: "El", text: "Return one of your basics to your supply. If you do, take another turn: you can play specials, but not an Elder. On your next turn after that, you can't play specials."}},
+  Undead: {Lich:   {abbr: "Li", text: "When you score with the Lich, you may use one enemy basic in the shape. It goes back to its owner."},
+           "Grave keeper": {abbr: "GK", text: "Place a basic next to the Grave keeper."},
+           Crypt:  {abbr: "Cr", text: "When the Crypt returns to your supply, place a basic where it was."}},
 };
 const ABBR = {}; const TEXT = {};
 for (const r in RACES) for (const k in RACES[r]) { ABBR[k] = RACES[r][k].abbr; TEXT[k] = RACES[r][k].text; }
@@ -506,7 +506,7 @@ function act(a) {
 function showCard(kinds, title) {
   const owner = S.players.findIndex(pl => kinds.some(k => k in pl.supply));
   const color = owner >= 0 ? S.players[owner].color : "var(--ink)";
-  $("card").innerHTML = `<h2>${title}</h2>` + kinds.map(k => `<div class="abrow"><div class="tok ${isBasic(k) ? "basic" : "special"}" style="--c:${color}">${isBasic(k) ? "" : ABBR[k]}</div><div><b>${kindName(k)}</b><p>${isBasic(k) ? "No ability. Specials can replace your own basic tiles." : TEXT[k]}</p></div></div>`).join("") + `<button id="cardClose" class="primary">Close</button>`;
+  $("card").innerHTML = `<h2>${title}</h2>` + kinds.map(k => `<div class="abrow"><div class="tok ${isBasic(k) ? "basic" : "special"}" style="--c:${color}">${isBasic(k) ? "" : ABBR[k]}</div><div><b>${kindName(k)}</b><p>${isBasic(k) ? "No ability. Specials can replace your own basic tiles." : TEXT[k]}</p></div></div>`).join("") + `<p class="muted" style="margin:0;font-size:13px">Destroy: the tile goes back to its owner's supply. Next to: any of the 8 surrounding spaces.</p><button id="cardClose" class="primary">Close</button>`;
   $("cardShade").hidden = false;
   $("cardShade").onclick = e => { if (e.target === $("cardShade") || e.target.id === "cardClose") $("cardShade").hidden = true; };
 }
