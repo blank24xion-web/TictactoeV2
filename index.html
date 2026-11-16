@@ -114,7 +114,7 @@ body.playing .bar button{min-height:42px}
 </head>
 <body>
 <div class="app">
-<div class="top"><h1>Grid Conquest <span class="muted">prototype · rules v0.3</span></h1>
+<div class="top"><h1>Grid Conquest <span class="muted">prototype · rules v0.3 · build 11-16b</span></h1>
 <button id="logBtn" class="logbtn" hidden>Log</button>
 <button id="menuBtn" class="menu" hidden>☰ Menu</button></div>
 <div id="logPanel" class="logpanel sheet" hidden><ol id="log"></ol></div>
@@ -865,7 +865,7 @@ function drawLobby(note) {
   const ctlOpts = [["online", "Online friend"], ["basic", "Basic bot"], ["advanced", "Advanced bot"], ["local", "Pass this phone"]];
   const connected = new Set(NET.conns.filter(c => c.open).map(c => c.seat));
   const ready = NET.peer && NET.peer.open && NET.seats.every((s, i) => s.ctl !== "online" || connected.has(i));
-  $("setup").innerHTML = `<b style="font-family:var(--display)">Host a campaign</b>
+  $("setup").innerHTML = `<b style="font-family:var(--display)">Lobby · campaign ${NET.code}</b>
     <p class="muted">${note || "Share this link. Friends open it in any browser to join."}</p>
     <div class="row"><input id="lnk" readonly value="${link}" style="flex:1;min-width:0;min-height:44px;font:14px var(--body);padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--parch);color:var(--ink)"><button id="share">Share</button></div>
     ${NET.seats.map((s, i) => `<div class="row"><label style="color:var(--p${i})">P${i+1}</label>${s.ctl === "online" ? `<span style="flex:1">${s.race} <span class="muted">(their pick)</span></span>` : `<select data-r="${i}">${raceOpts}</select>`}
@@ -925,7 +925,7 @@ function joinGame(code) {
 function guestLobby(code, seats, joined) {
   S = null; document.body.classList.remove("playing"); $("game").hidden = true; $("bar").hidden = true; $("setup").hidden = false;
   const label = s => s.ctl === "you" ? "Host" : s.ctl === "online" ? "Online friend" : s.ctl === "local" ? "Host's phone" : s.ctl === "basic" ? "Basic bot" : "Advanced bot";
-  $("setup").innerHTML = `<b style="font-family:var(--display)">Campaign ${code}</b>
+  $("setup").innerHTML = `<b style="font-family:var(--display)">Lobby · campaign ${code}</b>
     <p class="muted">${NET.seat === null ? "Waiting for a seat…" : `You are P${NET.seat + 1}. Pick your faction, then wait for the host to begin.`}</p>
     ${seats.map((s, i) => `<div class="row"><label style="color:var(--p${i})">P${i+1}</label>
       ${i === NET.seat ? `<select id="myRace" style="flex:1">${Object.keys(RACES).map(r => `<option${r === s.race ? " selected" : ""}>${r}</option>`).join("")}</select>`
