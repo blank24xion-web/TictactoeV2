@@ -158,14 +158,14 @@ const SHAPES = [
 ];
 const RACES = {
   Humans: {Castle: {abbr: "Ca", text: "Can't be moved or destroyed by enemies. Until your next turn, enemies can't place tiles next to it, and tiles next to it can't be used in enemy scores."},
-           Knight: {abbr: "Kn", text: "You may move one of your tiles next to the Knight. It can land on an enemy basic to destroy it (not a protected one). The moved tile is protected until your next turn."},
+           Knight: {abbr: "Kn", text: "You may move one of your tiles next to this tile. It can land on an enemy basic to destroy it (not a protected one). The moved tile is protected until your next turn."},
            Quartermaster: {abbr: "QM", text: "Place a basic next to one of your other basics. It can land on an enemy basic to destroy it (not a protected one)."}},
-  Elves:  {Ranger: {abbr: "Ra", text: "Destroy an enemy tile (not a Castle or a protected tile)."},
+  Elves:  {Ranger: {abbr: "Ra", text: "Destroy an enemy tile (not a protected one)."},
            Scout:  {abbr: "Sc", text: "Choose one: move up to two of your tiles to any empty spaces, or place a basic on an empty corner."},
-           Elder:  {abbr: "El", text: "Return one of your basics to your supply. If you do, take another turn: you can play specials, but not an Elder. On your next turn after that, you can't play specials."}},
-  Undead: {Lich:   {abbr: "Li", text: "When you score with the Lich, you may use one enemy basic in the shape. It goes back to its owner."},
-           "Grave keeper": {abbr: "GK", text: "Place a basic next to the Grave keeper."},
-           Crypt:  {abbr: "Cr", text: "When the Crypt returns to your supply, place a basic where it was."}},
+           Elder:  {abbr: "El", text: "Return one of your basics to your supply. If you do, take another turn: you can play specials, but not another Elder. On your next turn after that, you can't play specials."}},
+  Undead: {Lich:   {abbr: "Li", text: "When you score with this tile, you may use one enemy basic in the shape. It goes back to its owner."},
+           "Grave keeper": {abbr: "GK", text: "Place a basic next to this tile."},
+           Crypt:  {abbr: "Cr", text: "When this tile returns to your supply, place a basic where it was."}},
 };
 const ABBR = {}; const TEXT = {};
 for (const r in RACES) for (const k in RACES[r]) { ABBR[k] = RACES[r][k].abbr; TEXT[k] = RACES[r][k].text; }
