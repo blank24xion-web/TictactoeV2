@@ -114,7 +114,7 @@ body.playing .bar button{min-height:42px}
 </head>
 <body>
 <div class="app">
-<div class="top"><h1>Grid Conquest <span class="muted">prototype · rules v0.3 · build 11-16d</span></h1>
+<div class="top"><h1>Grid Conquest <span class="muted">prototype · rules v0.3 · build 11-16e</span></h1>
 <button id="logBtn" class="logbtn" hidden>Log</button>
 <button id="menuBtn" class="menu" hidden>☰ Menu</button></div>
 <div id="logPanel" class="logpanel sheet" hidden><ol id="log"></ol></div>
@@ -845,14 +845,17 @@ function assignSeats() {
   if (!inGame) {
     // Lobby: the host plus one seat per friend who has joined (up to 4 players).
     const old = NET.seats, open = NET.conns.filter(c => c.open);
+    const bots = old.filter(x => x.ctl === "basic" || x.ctl === "advanced");
     NET.seats = [old[0]];
     open.forEach(c => {
+      if (NET.seats.length + bots.length >= 4 && bots.length && !(c.seat !== undefined && old[c.seat] && old[c.seat].ctl === "online")) bots.pop();
       if (NET.seats.length >= 4) { c.send({type: "full"}); setTimeout(() => c.close(), 500); return; }
       const prev = c.seat !== undefined && old[c.seat];
       NET.seats.push({race: prev ? prev.race : Object.keys(RACES)[NET.seats.length % 3], ctl: "online"});
       c.seat = NET.seats.length - 1;
       c.send({type: "welcome", seat: c.seat});
     });
+    NET.seats.push(...bots.slice(0, 4 - NET.seats.length));
     return drawLobby();
   }
   // In a game: a returning friend takes back a free online seat.
@@ -888,18 +891,21 @@ function drawLobby(note) {
     <div class="row"><input id="lnk" readonly value="${link}" style="flex:1;min-width:0;min-height:44px;font:14px var(--body);padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--parch);color:var(--ink)"><button id="share">Share</button></div>
     ${NET.seats.map((s, i) => `<div class="row"><label style="color:var(--p${i})">P${i+1}</label>
       ${i === 0 ? `<select data-r="0" style="flex:1">${raceOpts}</select><span class="muted" style="flex:0 0 auto">You (host)</span>`
-        : `<span style="flex:1">${s.race}</span><span class="muted" style="flex:0 0 auto">Joined ✔</span>`}</div>`).join("")}
-    <p class="muted">${NET.seats.length < 4 ? `Waiting for players… (${NET.seats.length}/4)` : "Lobby full (4/4)."}</p>
+        : s.ctl === "online" ? `<span style="flex:1">${s.race}</span><span class="muted" style="flex:0 0 auto">Joined ✔</span>`
+        : `<select data-r="${i}" style="flex:1">${raceOpts}</select><select data-b="${i}"><option value="basic">Basic bot</option><option value="advanced">Advanced bot</option></select><button data-x="${i}" aria-label="Remove bot" style="flex:0 0 auto">✕</button>`}</div>`).join("")}
+    <div class="row"><span class="muted" style="flex:1">${NET.seats.length < 4 ? `Waiting for players… (${NET.seats.length}/4)` : "Table full (4/4)."}</span><button id="addBot"${NET.seats.length >= 4 ? " disabled" : ""}>Add bot</button></div>
     <button id="start" class="primary" style="width:100%"${ready ? "" : " disabled"}>Begin the campaign</button>
     <p class="muted">Keep this tab open with the screen on while you play.</p>`;
-  const r0 = $("setup").querySelector('[data-r="0"]'); r0.value = NET.seats[0].race;
-  r0.onchange = () => { NET.seats[0].race = r0.value; NET.broadcastLobby(); };
+  $("setup").querySelectorAll("[data-r]").forEach(el => { const i = +el.dataset.r; el.value = NET.seats[i].race; el.onchange = () => { NET.seats[i].race = el.value; NET.broadcastLobby(); }; });
+  $("setup").querySelectorAll("[data-b]").forEach(el => { const i = +el.dataset.b; el.value = NET.seats[i].ctl; el.onchange = () => { NET.seats[i].ctl = el.value; NET.broadcastLobby(); }; });
+  $("setup").querySelectorAll("[data-x]").forEach(el => el.onclick = () => { NET.seats.splice(+el.dataset.x, 1); drawLobby(); });
+  $("addBot").onclick = () => { if (NET.seats.length < 4) { NET.seats.push({race: Object.keys(RACES)[NET.seats.length % 3], ctl: "basic"}); drawLobby(); } };
   $("share").onclick = async () => {
     try { if (navigator.share) await navigator.share({title: "Grid Conquest", url: link}); else { await navigator.clipboard.writeText(link); $("share").textContent = "Copied"; } }
     catch (e) { $("lnk").select(); }
   };
   $("start").onclick = () => {
-    newGame(NET.seats.map(s => s.race), NET.seats.map(() => null));
+    newGame(NET.seats.map(s => s.race), NET.seats.map(s => s.ctl === "basic" || s.ctl === "advanced" ? s.ctl : null));
     NET.seats.forEach((s, i) => { if (s.ctl === "online") { S.players[i].remote = true; S.players[i].name += " (online)"; } });
     render();
   };
@@ -938,7 +944,7 @@ function joinGame(code) {
 // Guest lobby: everyone's seat, with a faction picker on your own.
 function guestLobby(code, seats, joined) {
   S = null; document.body.classList.remove("playing"); $("game").hidden = true; $("bar").hidden = true; $("setup").hidden = false;
-  const label = s => s.ctl === "you" ? "Host" : "Joined ✔";
+  const label = s => s.ctl === "you" ? "Host" : s.ctl === "basic" ? "Basic bot" : s.ctl === "advanced" ? "Advanced bot" : "Joined ✔";
   $("setup").innerHTML = `<b style="font-family:var(--display)">Lobby · campaign ${code}</b>
     <p class="muted">${NET.seat === null ? "Waiting for a seat…" : `You are P${NET.seat + 1}. Pick your faction, then wait for the host to begin.`}</p>
     ${seats.map((s, i) => `<div class="row"><label style="color:var(--p${i})">P${i+1}</label>
