@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Grid Conquest</title>
+<meta http-equiv="Cache-Control" content="no-cache"><title>Grid Conquest</title>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
@@ -114,7 +114,7 @@ body.playing .bar button{min-height:42px}
 </head>
 <body>
 <div class="app">
-<div class="top"><h1>Grid Conquest <span class="muted">prototype · rules v0.3 · build 11-16b</span></h1>
+<div class="top"><h1>Grid Conquest <span class="muted">prototype · rules v0.3 · build 11-16c</span></h1>
 <button id="logBtn" class="logbtn" hidden>Log</button>
 <button id="menuBtn" class="menu" hidden>☰ Menu</button></div>
 <div id="logPanel" class="logpanel sheet" hidden><ol id="log"></ol></div>
@@ -957,6 +957,21 @@ function showSetup() {
 }
 const joinCode = new URLSearchParams(location.search).get("join");
 if (joinCode && typeof Peer !== "undefined") joinGame(joinCode.toUpperCase()); else showSetup();
+
+// Self-update: if the live page has a newer build than this cached copy, reload it once.
+(async () => {
+  try {
+    if (location.protocol !== "https:") return;
+    const mine = (document.querySelector("h1 .muted") || {}).textContent || "";
+    const live = await (await fetch(location.pathname + "?check=" + Date.now(), {cache: "no-store"})).text();
+    const m = live.match(/build [\w-]+/);
+    if (!m || mine.includes(m[0])) return;
+    if (sessionStorage.getItem("gcReloaded") === m[0]) return;
+    sessionStorage.setItem("gcReloaded", m[0]);
+    const q = new URLSearchParams(location.search); q.set("b", m[0].slice(6));
+    location.replace(location.pathname + "?" + q);
+  } catch (e) {}
+})();
 </script>
 </body>
 </html>
