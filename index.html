@@ -95,6 +95,20 @@ body.playing .bar{border-top:0;background:none;position:static;flex:0 0 auto;mar
 body.playing .bar button{min-height:42px}
 .logpanel{position:absolute;z-index:20;top:36px;left:0;right:0;max-height:60%;overflow:auto;padding:10px 12px 10px 28px;font-size:14px}
 .logpanel ol{margin:0;padding:0}
+.shade{position:fixed;inset:0;z-index:30;background:rgba(20,12,6,.6);display:flex;align-items:center;justify-content:center;padding:24px}
+.abcard{width:100%;max-width:340px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.abcard h2{margin:0;font:800 13px var(--display);letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.abrow{display:flex;gap:12px;align-items:flex-start}
+.abrow .tok{width:44px;flex:0 0 44px;font-size:15px}
+.abrow b{display:block;font:800 16px var(--display)}
+.abrow p{margin:2px 0 0;font-size:15px;line-height:1.35}
+.abcard button{width:100%}
+.tile{position:relative}
+.tile .i{position:absolute;top:2px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--ink);color:var(--parch);font:italic 700 11px/16px Georgia,serif;text-align:center}
+.tile.off{background:transparent;box-shadow:none;border-style:dashed;border-color:rgba(220,195,146,.35);color:var(--parch2)}
+.tile.off .ab,.tile.off .nm,.tile.off .ct{color:var(--parch2)!important;opacity:.55}
+.tile.off .i{background:var(--parch2)}
+.chip{cursor:pointer}.chip .q{font:italic 700 11px Georgia,serif;opacity:.7;margin-left:4px}
 </style>
 </head>
 <body>
@@ -103,6 +117,7 @@ body.playing .bar button{min-height:42px}
 <button id="logBtn" class="logbtn" hidden>Log</button>
 <button id="menuBtn" class="menu" hidden>☰ Menu</button></div>
 <div id="logPanel" class="logpanel sheet" hidden><ol id="log"></ol></div>
+<div id="cardShade" class="shade" hidden><div id="card" class="abcard sheet" role="dialog" aria-modal="true"></div></div>
 <div id="setup" class="card sheet"></div>
 <div id="game" hidden>
   <div class="chips" id="chips"></div>
@@ -487,6 +502,15 @@ function act(a) {
   if (NET.role === "guest") { NET.send({type: "action", a}); S.waiting = true; render(); return; }
   applyAction(a);
 }
+// Ability card: one tile, or a whole race's specials.
+function showCard(kinds, title) {
+  const owner = S.players.findIndex(pl => kinds.some(k => k in pl.supply));
+  const color = owner >= 0 ? S.players[owner].color : "var(--ink)";
+  $("card").innerHTML = `<h2>${title}</h2>` + kinds.map(k => `<div class="abrow"><div class="tok ${isBasic(k) ? "basic" : "special"}" style="--c:${color}">${isBasic(k) ? "" : ABBR[k]}</div><div><b>${kindName(k)}</b><p>${isBasic(k) ? "No ability. Specials can replace your own basic tiles." : TEXT[k]}</p></div></div>`).join("") + `<button id="cardClose" class="primary">Close</button>`;
+  $("cardShade").hidden = false;
+  $("cardShade").onclick = e => { if (e.target === $("cardShade") || e.target.id === "cardClose") $("cardShade").hidden = true; };
+}
+const raceKinds = race => Object.keys(RACES[race]);
 function render() {
   if (S.sim) return;
   if (NET.role !== "guest") scheduleBot();
@@ -506,8 +530,9 @@ function render() {
   if (S.lastCur !== p) { S.lastCur = p; S.mode = "play"; S.chosen = null; S.objSel = null; S.scoreSel = []; }
 
   $("chips").innerHTML = S.players.map((pl, i) =>
-    `<div class="chip sheet${i === p && !S.over ? " cur" : ""}" style="--c:${pl.color}"><span style="font-size:13px;font-weight:600">${pl.race}${pl.bot ? " ⚙" : ""}${NET.role === "guest" && i === NET.seat ? " (you)" : ""}</span><span>${pl.score}/${target()}</span></div>`).join("");
+    `<div class="chip sheet${i === p && !S.over ? " cur" : ""}" style="--c:${pl.color}"><span style="font-size:13px;font-weight:600">${pl.race}${pl.bot ? " ⚙" : ""}${NET.role === "guest" && i === NET.seat ? " (you)" : ""}<span class="q">i</span></span><span>${pl.score}/${target()}</span></div>`).join("");
 
+  [...$("chips").children].forEach((el, i) => el.onclick = () => showCard(raceKinds(S.players[i].race), S.players[i].race + " abilities"));
   $("objs").innerHTML = "";
   S.display.forEach((id, j) => {
     const o = document.createElement("div");
@@ -560,21 +585,26 @@ function render() {
         return act({t: "score", j, cells});
       }
       if (mine && !S.pending && S.mode === "play" && S.chosen && hints.has(i)) { const k = S.chosen; S.chosen = null; return act({t: "play", k, cell: i}); }
-      if (t) { S.info = tileInfo(t.kind, t.owner); render(); }
+      if (t) { if (!isBasic(t.kind)) showCard([t.kind], S.players[t.owner].race); else { S.info = tileInfo(t.kind, t.owner); render(); } }
     };
     $("board").appendChild(c);
   });
 
-  $("info").innerHTML = S.info || "Tap any tile on the map to read it.";
+  $("info").innerHTML = S.info || "Tap ⓘ, a race name, or a tile on the map to read abilities.";
 
   $("tray").innerHTML = "";
   if (mine && !S.pending && S.mode === "play") {
     for (const k in me.supply) {
       const b = document.createElement("button");
       b.className = "tile" + (S.chosen === k ? " on" : "");
-      b.innerHTML = `<span class="ab" style="color:${me.color}">${kindAbbr(k)}</span><span class="nm">${kindName(k)}</span><span class="ct">×${me.supply[k]}</span>`;
-      b.disabled = !(me.supply[k] > 0 && specialAllowed(k) && playSpots(p, k).length);
-      b.onclick = () => { S.chosen = S.chosen === k ? null : k; S.info = S.chosen ? tileInfo(k) + (isBasic(k) ? "" : " Can also replace one of your basic tiles.") : ""; render(); };
+      const ok = me.supply[k] > 0 && specialAllowed(k) && playSpots(p, k).length > 0;
+      b.innerHTML = `<span class="ab" style="color:${me.color}">${kindAbbr(k)}</span><span class="nm">${kindName(k)}</span><span class="ct">×${me.supply[k]}</span>` + (isBasic(k) ? "" : `<span class="i" aria-label="Read ability">i</span>`);
+      if (!ok) b.classList.add("off");
+      b.onclick = e => {
+        if (!isBasic(k) && (e.target.classList.contains("i") || !ok)) return showCard([k], me.race);
+        if (!ok) return;
+        S.chosen = S.chosen === k ? null : k; S.info = S.chosen ? tileInfo(k) : ""; render();
+      };
       $("tray").appendChild(b);
     }
   }
